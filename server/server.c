@@ -20,18 +20,18 @@ struct Client{
     struct sockaddr_in clntAddr;
     char username[RCVBUFSIZE];
 };
-int num; //tracks number of Clients.
-struct thread_args{
+struct thread_args{ //send the client, sock
     struct Client client;
     int sock;
     int clientNum;
+    char *username;
 };
 struct username_args{
     int portnum;
     char *address; //keep track of clients by their number at first...
 };
 struct thread_args threadarg1[NUMCLIENT]; 
-void *getfromclient(void *args);
+void getfromclient(struct thread_args *threadarg1);
 void *sendtoclient(void *args);
 void *getusername(void *args);
 int main(int argc, char *argv[])
@@ -88,20 +88,22 @@ void *getusername(void *args){ //get the username first then let it send text.
             //Now create a new thread for that client to send it data.
             threadarg1.client = *client;
             threadarg1.sock = servSock;
-            threadarg1.clientNum = num;
+            threadarg1.clientNum = info->portnum-STARTPORT;
+            threadarg1.username = client->username;
+            getfromclient(&threadarg1);
             //DO NOT CREATE ANOTHER THREAD!! - ENTER ANOTHER FUNCTION FROM NOW ON TO GET THEIR DATA - 
             //THE USERNAME FOR THIS CLIENT HAS ALREADY BEEN RETRIEVED -put call below:
         }
     }
 }
 
-void *getfromclient(void *args){ //Get the text from a single client. Then broadcast to all clients.
+void getfromclient(struct thread_args *threadarg1){ //Get the text from a single client. Then broadcast to all clients.
     //Each thread should be handling a single client. This way each client instance can call sendtoclient by itself.
-    struct thread_args *info = args;
+    //struct thread_args *threadarg1 = threadarg1;
     char recievebuf[RCVBUFSIZE];
-    while(1){ 
-        if(recvfrom(info->sock, recievebuf, 1024, 0, (struct sockaddr*)&info->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
-            printf("data is %s and username is %s\n", recievebuf, info->client.username);
+    while(1){ //Each client should be connecting to a different sock.
+        if(recvfrom(threadarg1->sock, recievebuf, 1024, 0, (struct sockaddr*)&threadarg1->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
+            printf("data is %s and username is %s\n", recievebuf, threadarg1->client.username);
         }
     }
 }
