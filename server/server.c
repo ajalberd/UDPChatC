@@ -20,19 +20,19 @@ struct Client{
     struct sockaddr_in clntAddr;
     char username[RCVBUFSIZE];
 };
-struct thread_args{ //send the client, sock
+struct thread_args{ //Client, clientNum, and username
     struct Client client;
     int sock;
     int clientNum;
     char *username;
 };
-struct username_args{
+struct username_args{ //One for each thread. Stores the port number (and client number) as well as the address to bind.
     int portnum;
     char *address; //keep track of clients by their number at first...
 };
 struct thread_args threadarg1[NUMCLIENT]; 
 void getfromclient(struct thread_args *threadarg1);
-void *sendtoclient(void *args);
+void broadcasttoclients(struct thread_args *threadarg1, char *recievebuf);
 void *getusername(void *args);
 int main(int argc, char *argv[])
 {
@@ -63,8 +63,7 @@ void *getusername(void *args){ //get the username first then let it send text.
     struct username_args *info = args;
     int servSock;
     struct sockaddr_in echoServAddr;   
-    pthread_t threadnum;
-    struct thread_args threadarg1;
+    //pthread_t threadnum;
     
     servSock = socket(AF_INET, SOCK_DGRAM, 0);
     memset(&echoServAddr, '\0', sizeof(echoServAddr));
@@ -75,7 +74,7 @@ void *getusername(void *args){ //get the username first then let it send text.
     if(bind(servSock, (struct sockaddr*)&echoServAddr, sizeof(echoServAddr)) !=0){
         DieWithError("Error binding");
     }
-
+    int clientnum = info->portnum-STARTPORT;
     typedef struct Client Client;
     struct Client *client = (Client*)malloc(sizeof(Client));
     client->clientlen = sizeof(struct sockaddr_in);
@@ -83,16 +82,18 @@ void *getusername(void *args){ //get the username first then let it send text.
         int r;
         //Recieve from one of the clients. Get username and then don't get any connections from them here again.
         if ((r = recvfrom(servSock, client->username, RCVBUFSIZE, 0, (struct sockaddr*)&client->clntAddr, &client->clientlen)) != 0){
-            //if there is a comma disregard, only the username without comma should go through.
             printf("Username is: %s\n", client->username);
             //Now create a new thread for that client to send it data.
-            threadarg1.client = *client;
-            threadarg1.sock = servSock;
-            threadarg1.clientNum = info->portnum-STARTPORT;
-            threadarg1.username = client->username;
-            getfromclient(&threadarg1);
+            threadarg1[clientnum].client = *client;
+            threadarg1[clientnum].sock = servSock;
+            threadarg1[clientnum].clientNum = clientnum;
+            threadarg1[clientnum].username = client->username;
+            //verified working
+
             //DO NOT CREATE ANOTHER THREAD!! - ENTER ANOTHER FUNCTION FROM NOW ON TO GET THEIR DATA - 
             //THE USERNAME FOR THIS CLIENT HAS ALREADY BEEN RETRIEVED -put call below:
+            getfromclient(&threadarg1[clientnum]);
+            
         }
     }
 }
@@ -102,13 +103,23 @@ void getfromclient(struct thread_args *threadarg1){ //Get the text from a single
     //struct thread_args *threadarg1 = threadarg1;
     char recievebuf[RCVBUFSIZE];
     while(1){ //Each client should be connecting to a different sock.
-        if(recvfrom(threadarg1->sock, recievebuf, 1024, 0, (struct sockaddr*)&threadarg1->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
+        if(recvfrom(threadarg1->sock, recievebuf, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
             printf("data is %s and username is %s\n", recievebuf, threadarg1->client.username);
+            //Now send to every client except your own.            
+            broadcasttoclients(threadarg1, recievebuf);
         }
     }
 }
-void broadcasttoclients(void *args){ //Take in list of clients, synchronize the data. 
-    struct thread_args *info = args;
-    char recievebuf[RCVBUFSIZE];
+void broadcasttoclients(struct thread_args *threadarg, char *recievebuf){ //Take in list of clients, synchronize the data. 
+    struct thread_args *info = threadarg;
     
+    for(int i=0; i<NUMCLIENT; i++){
+        if(info->clientNum != i){ //send to all but the passed threadarg client.
+            //Send both the username and text.
+            char username[RCVBUFSIZE];
+            strcpy(username, info->username);
+            sendto(threadarg1[i].sock, recievebuf, RCVBUFSIZE, MSG_CONFIRM, (struct sockaddr*)&threadarg1[i].client.clntAddr, sizeof(threadarg1[i].client.clntAddr)); //using sendto() for UDP messages.
+            sendto(threadarg1[i].sock, username, RCVBUFSIZE, MSG_CONFIRM, (struct sockaddr*)&threadarg1[i].client.clntAddr, sizeof(threadarg1[i].client.clntAddr)); //using sendto() for UDP messages.
+        }
+    }
 }

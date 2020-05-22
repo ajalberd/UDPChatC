@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     server_addr.sin_addr.s_addr = inet_addr(address);
     
 
-    //Send the string to the server
+    //Each client sends its username to the sever first.
     char buffer[RCVBUFSIZE];
     strcpy(buffer, username);
     int s = sendto(sock, username, RCVBUFSIZE, MSG_CONFIRM, (struct sockaddr*)&server_addr, sizeof(server_addr)); //using sendto() for UDP messages.
@@ -59,12 +59,16 @@ int main(int argc, char *argv[])
 
 void *recvfromserver(void *args){
     struct thread_args *info = args;
-    char recievebuf[RCVBUFSIZE]; //get text from server later
+    char recieveuser[RCVBUFSIZE]; //get text from server later
+    char recievedata[RCVBUFSIZE];
     while(1){
-        recievebuf[0] = '\0'; //blank the recieve every time
-        recvfrom(info->sock, recievebuf, 1024, 0, (struct sockaddr*)&info->server_addr, sizeof(info->server_addr));
-        if(recievebuf[0] != '\0'){
-            printf("%s\n",recievebuf);
+        recieveuser[0] = '\0'; //blank the recieve every time
+        recievedata[0] = '\0'; //blank the recieve every time
+        recvfrom(info->sock, recievedata, 1024, 0, (struct sockaddr*)&info->server_addr, sizeof(info->server_addr));
+        recvfrom(info->sock, recieveuser, 1024, 0, (struct sockaddr*)&info->server_addr, sizeof(info->server_addr));
+        if(recievedata[0] != '\0'){
+            printf("From %s: %s\n",recieveuser, recievedata);
+            printf("input text:\n");
         }
     }
 }
