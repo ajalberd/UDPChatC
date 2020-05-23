@@ -98,21 +98,38 @@ void *getusername(void *args){ //get the username first then let it send text.
     }
 }
 
-void getfromclient(struct thread_args *threadarg1){ //Get the text from a single client. Then broadcast to all clients.
+void getfromclient(struct thread_args *threadarg){ //Get the text from a single client. Then broadcast to all clients.
     //Each thread should be handling a single client. This way each client instance can call sendtoclient by itself.
     //struct thread_args *threadarg1 = threadarg1;
     char recievebuf[RCVBUFSIZE];
+    char *s;
     while(1){ //Each client should be connecting to a different sock.
-        if(recvfrom(threadarg1->sock, recievebuf, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
-            printf("data is %s and username is %s\n", recievebuf, threadarg1->client.username);
-            //Now send to every client except your own.            
-            broadcasttoclients(threadarg1, recievebuf);
+        if(recvfrom(threadarg->sock, recievebuf, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
+            if ((s = strstr(recievebuf, ","))){
+                //Username,data to send to a specific username. Do not call the broadcasttoclient 
+                for(int i=0; i<NUMCLIENT;i++){
+                    char *usern = strtok(recievebuf, ",");
+                    if(!strcmp(threadarg1[i].username, usern)){
+                        usern = strtok(NULL, ",");
+                        char databuf[RCVBUFSIZE];
+                        strcpy(databuf, usern);
+                        sendto(threadarg1[i].sock, databuf, RCVBUFSIZE, MSG_CONFIRM, (struct sockaddr*)&threadarg1[i].client.clntAddr, sizeof(threadarg1[i].client.clntAddr)); //using sendto() for UDP messages.
+                        sendto(threadarg1[i].sock, threadarg->username, RCVBUFSIZE, MSG_CONFIRM, (struct sockaddr*)&threadarg1[i].client.clntAddr, sizeof(threadarg1[i].client.clntAddr)); //using sendto() for UDP messages.
+                        break;
+                    }
+                }
+            }
+            else{
+                printf("data is %s and username is %s\n", recievebuf, threadarg1->client.username);
+                //Now send to every client except your own.            
+                broadcasttoclients(threadarg, recievebuf);
+            } 
         }
+        //Now, send to all clients your username. i.e "FROM SERVER: USERNAMES X X X X"
     }
 }
 void broadcasttoclients(struct thread_args *threadarg, char *recievebuf){ //Take in list of clients, synchronize the data. 
     struct thread_args *info = threadarg;
-    
     for(int i=0; i<NUMCLIENT; i++){
         if(info->clientNum != i){ //send to all but the passed threadarg client.
             //Send both the username and text.
