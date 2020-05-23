@@ -92,11 +92,13 @@ void *getusername(void *args){ //get the username first then let it send text.
 
 
             //Now, broadcast to this client all usernames in play. i.e "FROM SERVER: USERNAMES X X X X"
-            /*for(int x=0; x< NUMCLIENT; x++){
-                if(threadarg1[x].username){
-                    sendto(servSock, threadarg1[x].client.username, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1[x].client.clntAddr, sizeof(threadarg1[x].client.clntAddr));
+            //Assume andy2 is created (and owns this thread) after andy is made. Send to andy2 that andy is in the chat.
+            for(int x=0; x< NUMCLIENT; x++){
+                if(threadarg1[x].username && (x!=clientnum)){
+                    sendto(servSock, threadarg1[x].client.username, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1[clientnum].client.clntAddr, sizeof(threadarg1[clientnum].client.clntAddr));
+                    sendto(servSock, "Server: ", RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1[clientnum].client.clntAddr, sizeof(threadarg1[clientnum].client.clntAddr));
                 }
-            }*/
+            }
 
             //DO NOT CREATE ANOTHER THREAD!! - ENTER ANOTHER FUNCTION FROM NOW ON TO GET THEIR DATA - 
             //THE USERNAME FOR THIS CLIENT HAS ALREADY BEEN RETRIEVED -put call below:
