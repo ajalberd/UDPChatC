@@ -90,6 +90,14 @@ void *getusername(void *args){ //get the username first then let it send text.
             threadarg1[clientnum].username = client->username;
             //verified working
 
+
+            //Now, broadcast to this client all usernames in play. i.e "FROM SERVER: USERNAMES X X X X"
+            /*for(int x=0; x< NUMCLIENT; x++){
+                if(threadarg1[x].username){
+                    sendto(servSock, threadarg1[x].client.username, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg1[x].client.clntAddr, sizeof(threadarg1[x].client.clntAddr));
+                }
+            }*/
+
             //DO NOT CREATE ANOTHER THREAD!! - ENTER ANOTHER FUNCTION FROM NOW ON TO GET THEIR DATA - 
             //THE USERNAME FOR THIS CLIENT HAS ALREADY BEEN RETRIEVED -put call below:
             getfromclient(&threadarg1[clientnum]);
@@ -107,9 +115,9 @@ void getfromclient(struct thread_args *threadarg){ //Get the text from a single 
         if(recvfrom(threadarg->sock, recievebuf, RCVBUFSIZE, 0, (struct sockaddr*)&threadarg->client.clntAddr, sizeof(struct sockaddr_in)) < 0){
             if ((s = strstr(recievebuf, ","))){
                 //Username,data to send to a specific username. Do not call the broadcasttoclient 
+                char *usern = strtok(recievebuf, ",");
                 for(int i=0; i<NUMCLIENT;i++){
-                    char *usern = strtok(recievebuf, ",");
-                    if(!strcmp(threadarg1[i].username, usern)){
+                    if((threadarg1[i].username) && !(strcmp(threadarg1[i].username, usern))){
                         usern = strtok(NULL, ",");
                         char databuf[RCVBUFSIZE];
                         strcpy(databuf, usern);
@@ -125,7 +133,6 @@ void getfromclient(struct thread_args *threadarg){ //Get the text from a single 
                 broadcasttoclients(threadarg, recievebuf);
             } 
         }
-        //Now, send to all clients your username. i.e "FROM SERVER: USERNAMES X X X X"
     }
 }
 void broadcasttoclients(struct thread_args *threadarg, char *recievebuf){ //Take in list of clients, synchronize the data. 
